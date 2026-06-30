@@ -1,43 +1,27 @@
 #!/usr/bin/env python3
-"""Serve the published wwwroot with correct WASM MIME types."""
+"""Serve the static wwwroot site."""
 
 from __future__ import annotations
 
 import argparse
 import http.server
-import shutil
 import socket
 import socketserver
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-SOURCE_WWWROOT = ROOT / "wwwroot"
-DEFAULT_DIR = ROOT / "bin" / "Release" / "net8.0" / "publish" / "wwwroot"
-STATIC_FILES = ("index.html", "styles.css", "main.js")
+DEFAULT_DIR = ROOT / "wwwroot"
+
+
+class StaticHandler(http.server.SimpleHTTPRequestHandler):
+    extensions_map = {
+        **http.server.SimpleHTTPRequestHandler.extensions_map,
+        ".js": "application/javascript",
+    }
 
 
 class ReuseTCPServer(socketserver.TCPServer):
     allow_reuse_address = True
-
-
-class WasmHandler(http.server.SimpleHTTPRequestHandler):
-    extensions_map = {
-        **http.server.SimpleHTTPRequestHandler.extensions_map,
-        ".wasm": "application/wasm",
-        ".dll": "application/octet-stream",
-        ".dat": "application/octet-stream",
-    }
-
-
-def sync_static_assets(target_dir: Path) -> None:
-    """Copy editable static files from source wwwroot into the publish directory."""
-    if not SOURCE_WWWROOT.is_dir():
-        return
-    target_dir.mkdir(parents=True, exist_ok=True)
-    for name in STATIC_FILES:
-        src = SOURCE_WWWROOT / name
-        if src.is_file():
-            shutil.copy2(src, target_dir / name)
 
 
 def local_ipv4_addresses() -> list[str]:
@@ -91,17 +75,11 @@ def main() -> None:
     args = parser.parse_args()
 
     host = "127.0.0.1" if args.localhost_only else args.host
-
     directory = args.directory.resolve()
     if not directory.is_dir():
-        raise SystemExit(
-            f"Directory not found: {directory}\n"
-            "Run `dotnet publish -c Release` first."
-        )
+        raise SystemExit(f"Directory not found: {directory}")
 
-    sync_static_assets(directory)
-
-    handler = lambda *h_args, **h_kwargs: WasmHandler(  # noqa: E731
+    handler = lambda *h_args, **h_kwargs: StaticHandler(  # noqa: E731
         *h_args, directory=str(directory), **h_kwargs
     )
 

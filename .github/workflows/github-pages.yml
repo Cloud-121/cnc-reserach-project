@@ -21,17 +21,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Install WASM templates
-        run: dotnet new install Microsoft.NET.Runtime.WebAssembly.Templates
-
-      - name: Publish patcher
-        run: dotnet publish -c Release
-
       - name: Compute base href
         id: base
         run: |
@@ -46,13 +35,13 @@ jobs:
         run: |
           chmod +x scripts/prepare-github-pages.sh
           scripts/prepare-github-pages.sh \
-            "bin/Release/net8.0/publish/wwwroot" \
+            "wwwroot" \
             "${{ steps.base.outputs.href }}"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: bin/Release/net8.0/publish/wwwroot
+          path: wwwroot
 
   deploy:
     needs: build

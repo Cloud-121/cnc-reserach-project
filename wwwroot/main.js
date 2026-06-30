@@ -1,131 +1,161 @@
-import { dotnet } from './_framework/dotnet.js';
+import {
+  generateLongCode,
+  listNonRetailEditionOptions,
+  listOfficialEditionOptions,
+  longCodeFieldsFromValues,
+} from './mozaik-license.js';
 
-const loadingEl = document.getElementById('loading');
-const appEl = document.getElementById('app');
-const errorEl = document.getElementById('error');
-const errorTextEl = document.getElementById('error-text');
-const exeInput = document.getElementById('exe-input');
-const dllInput = document.getElementById('dll-input');
-const patchBtn = document.getElementById('patch-btn');
-const logEl = document.getElementById('log');
+const machineIdInput = document.getElementById('machine-id');
+const editionSelect = document.getElementById('edition');
+const editionNonRetailSelect = document.getElementById('edition-non-retail');
+const nonRetailMenu = document.getElementById('non-retail-menu');
+const expiryInput = document.getElementById('expiry');
+const generateBtn = document.getElementById('generate-btn');
+const formErrorEl = document.getElementById('form-error');
 const resultsEl = document.getElementById('results');
-const downloadExe = document.getElementById('download-exe');
-const downloadDll = document.getElementById('download-dll');
+const resultCodeEl = document.getElementById('result-code');
+const copyBtn = document.getElementById('copy-btn');
+const metaMachineId = document.getElementById('meta-machine-id');
+const metaEdition = document.getElementById('meta-edition');
+const metaExpiry = document.getElementById('meta-expiry');
 
-let patchAssemblies = null;
-let exeBytes = null;
-let dllBytes = null;
-let downloadUrls = [];
-
-function setLog(lines) {
-  logEl.textContent = Array.isArray(lines) ? lines.join('\n') : String(lines);
-}
-
-function appendLog(line) {
-  logEl.textContent = logEl.textContent ? `${logEl.textContent}\n${line}` : line;
-}
-
-function revokeDownloadUrls() {
-  for (const url of downloadUrls) {
-    URL.revokeObjectURL(url);
+function appendOptions(select, options, selectedId) {
+  for (const option of options) {
+    const el = document.createElement('option');
+    el.value = option.id;
+    el.textContent = option.label;
+    if (option.id === selectedId) {
+      el.selected = true;
+    }
+    select.appendChild(el);
   }
-  downloadUrls = [];
 }
 
-function updatePatchButton() {
-  patchBtn.disabled = !(exeBytes && dllBytes && patchAssemblies);
-}
+appendOptions(editionSelect, listOfficialEditionOptions(), 'manufacturing');
+appendOptions(editionNonRetailSelect, listNonRetailEditionOptions());
 
-function readFileAsBytes(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(new Uint8Array(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error(`Failed to read ${file.name}`));
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-function base64ToBytes(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
+function selectedEditionId() {
+  if (nonRetailMenu.open && editionNonRetailSelect.value) {
+    return editionNonRetailSelect.value;
   }
-  return bytes;
+  return editionSelect.value;
 }
 
-function offerDownload(linkEl, filename, bytes) {
-  const blob = new Blob([bytes], { type: 'application/octet-stream' });
-  const url = URL.createObjectURL(blob);
-  downloadUrls.push(url);
-  linkEl.href = url;
-  linkEl.download = filename;
+function showError(message) {
+  formErrorEl.textContent = message;
+  formErrorEl.classList.remove('hidden');
 }
 
-exeInput.addEventListener('change', async () => {
-  const file = exeInput.files?.[0];
-  exeBytes = file ? await readFileAsBytes(file) : null;
-  updatePatchButton();
+function clearError() {
+  formErrorEl.textContent = '';
+  formErrorEl.classList.add('hidden');
+}
+
+function normalizeMachineId(raw) {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new Error('Enter a machine ID.');
+  }
+  if (trimmed.length > 7) {
+    throw new Error('Machine ID must be 7 characters or fewer.');
+  }
+  if (!/^[A-Za-z0-9]+$/.test(trimmed)) {
+    throw new Error('Machine ID must be alphanumeric.');
+  }
+  return trimmed.slice(0, 7);
+}
+
+function parseExpiry(value) {
+  if (!value) {
+    throw new Error('Select an expiry date.');
+  }
+  const [yearStr, monthStr, dayStr] = value.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!year || !month || !day) {
+    throw new Error('Invalid expiry date.');
+  }
+  return { year, month, day };
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall back below (e.g. permission denied).
+    }
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  textarea.setSelectionRange(0, text.length);
+
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } finally {
+    document.body.removeChild(textarea);
+  }
+  return ok;
+}
+
+function flashCopyButton(label, revertLabel = 'Copy') {
+  copyBtn.textContent = label;
+  setTimeout(() => {
+    copyBtn.textContent = revertLabel;
+  }, 1500);
+}
+
+nonRetailMenu.addEventListener('toggle', () => {
+  if (!nonRetailMenu.open) {
+    editionNonRetailSelect.value = '';
+  }
 });
 
-dllInput.addEventListener('change', async () => {
-  const file = dllInput.files?.[0];
-  dllBytes = file ? await readFileAsBytes(file) : null;
-  updatePatchButton();
-});
-
-patchBtn.addEventListener('click', async () => {
-  if (!patchAssemblies || !exeBytes || !dllBytes) {
-    return;
-  }
-
+generateBtn.addEventListener('click', () => {
+  clearError();
   resultsEl.classList.add('hidden');
-  revokeDownloadUrls();
-  patchBtn.disabled = true;
-  setLog('Patching…');
 
   try {
-    const json = patchAssemblies(exeBytes, dllBytes);
-    const result = JSON.parse(json);
+    const machineId = normalizeMachineId(machineIdInput.value);
+    const { year, month, day } = parseExpiry(expiryInput.value);
+    const fields = longCodeFieldsFromValues({
+      month,
+      day,
+      year,
+      edition: selectedEditionId(),
+    });
+    const code = generateLongCode(fields, machineId);
 
-    if (result.messages?.length) {
-      setLog(result.messages);
-    }
-
-    if (!result.success) {
-      appendLog(`Error: ${result.error ?? 'Patch failed'}`);
-      return;
-    }
-
-    const patchedExe = base64ToBytes(result.patchedExe);
-    const patchedDll = base64ToBytes(result.patchedDll);
-
-    offerDownload(downloadExe, 'Mozaik.exe', patchedExe);
-    offerDownload(downloadDll, 'MozaikData.dll', patchedDll);
+    resultCodeEl.textContent = code;
+    metaMachineId.textContent = machineId;
+    metaEdition.textContent = fields.editionDisplayName;
+    metaExpiry.textContent = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     resultsEl.classList.remove('hidden');
   } catch (err) {
-    appendLog(`Error: ${err.message ?? err}`);
-  } finally {
-    updatePatchButton();
+    showError(err.message ?? String(err));
   }
 });
 
-try {
-  const { getAssemblyExports, getConfig } = await dotnet
-    .withDiagnosticTracing(false)
-    .create();
+copyBtn.addEventListener('click', async () => {
+  const code = resultCodeEl.textContent?.trim();
+  if (!code) {
+    return;
+  }
+  const ok = await copyText(code);
+  flashCopyButton(ok ? 'Copied' : 'Copy failed');
+});
 
-  const config = getConfig();
-  const exports = await getAssemblyExports(config.mainAssemblyName);
-  patchAssemblies = exports.MozaikPatcher.PatcherInterop.PatchAssemblies;
-
-  await dotnet.run();
-
-  loadingEl.classList.add('hidden');
-  appEl.classList.remove('hidden');
-  updatePatchButton();
-} catch (err) {
-  loadingEl.classList.add('hidden');
-  errorEl.classList.remove('hidden');
-  errorTextEl.textContent = err.message ?? String(err);
-}
+machineIdInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    generateBtn.click();
+  }
+});

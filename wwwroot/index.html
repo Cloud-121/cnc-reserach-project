@@ -15,55 +15,50 @@
     <header>
       <h1>CNC Research Project</h1>
       <p class="disclaimer">This site is purely for research into systems. It should only be used if you own a license.</p>
-      <p class="subtitle">Patch Mozaik.exe and MozaikData.dll entirely in your browser. Nothing is uploaded to a server.</p>
+      <p class="subtitle">Generate authorization codes in your browser. Nothing is uploaded.</p>
     </header>
 
-    <section id="loading" class="panel">
-      <p>Starting patcher runtime…</p>
-      <p class="hint">First load downloads the WebAssembly runtime (~15–30 MB, cached afterward).</p>
+    <section class="panel">
+      <h2>Generate authorization code</h2>
+      <div class="field">
+        <label for="machine-id">Machine ID</label>
+        <input id="machine-id" type="text" maxlength="7" autocomplete="off" spellcheck="false"
+          placeholder="7-character key">
+        <p class="hint">7-character machine key from Mozaik About — not the long User ID from State.dat.</p>
+      </div>
+      <div class="field">
+        <label for="edition">Edition</label>
+        <select id="edition"></select>
+      </div>
+      <details id="non-retail-menu" class="non-retail-menu">
+        <summary>Non-retail editions</summary>
+        <div class="field">
+          <label for="edition-non-retail">Alternate edition codes</label>
+          <select id="edition-non-retail">
+            <option value="">— use standard edition above —</option>
+          </select>
+          <p class="hint">Extended bundles and non-retail codes for research only.</p>
+        </div>
+      </details>
+      <div class="field">
+        <label for="expiry">Expiry</label>
+        <input id="expiry" type="date" value="2099-12-31">
+      </div>
+      <button id="generate-btn" type="button">Generate code</button>
+      <p id="form-error" class="form-error hidden" role="alert"></p>
     </section>
 
-    <section id="app" class="hidden">
-      <section class="panel">
-        <h2>1. Upload files</h2>
-        <div class="field">
-          <label for="exe-input">Mozaik.exe</label>
-          <input id="exe-input" type="file" accept=".exe,application/octet-stream">
-        </div>
-        <div class="field">
-          <label for="dll-input">MozaikData.dll <span class="hint">(from <code>System\</code>)</span></label>
-          <input id="dll-input" type="file" accept=".dll,application/octet-stream">
-        </div>
-        <button id="patch-btn" type="button" disabled>Patch files</button>
-      </section>
-
-      <section class="panel">
-        <h2>2. Log</h2>
-        <pre id="log" aria-live="polite">Select both files, then click Patch files.</pre>
-      </section>
-
-      <section id="results" class="panel hidden">
-        <h2>3. Download patched files</h2>
-        <div class="downloads">
-          <a id="download-exe" class="button" download="Mozaik.exe">Download Mozaik.exe</a>
-          <a id="download-dll" class="button" download="MozaikData.dll">Download MozaikData.dll</a>
-        </div>
-
-        <div class="instructions">
-          <h3>Replace your install</h3>
-          <p>Back up your originals first, then close Mozaik and replace:</p>
-          <ul>
-            <li><code>C:\Mozaik\Mozaik.exe</code></li>
-            <li><code>C:\Mozaik\System\MozaikData.dll</code></li>
-          </ul>
-          <p>with the downloaded patched files.</p>
-        </div>
-      </section>
-    </section>
-
-    <section id="error" class="panel error hidden">
-      <h2>Runtime failed to start</h2>
-      <p id="error-text"></p>
+    <section id="results" class="panel hidden">
+      <h2>Authorization code</h2>
+      <div class="result-row">
+        <code id="result-code" class="result-code"></code>
+        <button id="copy-btn" type="button" class="copy-btn">Copy</button>
+      </div>
+      <dl class="result-meta">
+        <div><dt>Machine ID</dt><dd id="meta-machine-id"></dd></div>
+        <div><dt>Edition</dt><dd id="meta-edition"></dd></div>
+        <div><dt>Expiry</dt><dd id="meta-expiry"></dd></div>
+      </dl>
     </section>
   </main>
 </body>
