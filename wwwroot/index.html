@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <base href="/" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNC Research Project</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="main.js"></script>
+</head>
+
+<body>
+  <main class="container">
+    <header>
+      <h1>CNC Research Project</h1>
+      <p class="disclaimer">This site is purely for research into systems. It should only be used if you own a license.</p>
+      <p class="subtitle">Patch Mozaik.exe and MozaikData.dll entirely in your browser. Nothing is uploaded to a server.</p>
+    </header>
+
+    <section id="loading" class="panel">
+      <p>Starting patcher runtime…</p>
+      <p class="hint">First load downloads the WebAssembly runtime (~15–30 MB, cached afterward).</p>
+    </section>
+
+    <section id="app" class="hidden">
+      <section class="panel">
+        <h2>1. Upload files</h2>
+        <div class="field">
+          <label for="exe-input">Mozaik.exe</label>
+          <input id="exe-input" type="file" accept=".exe,application/octet-stream">
+        </div>
+        <div class="field">
+          <label for="dll-input">MozaikData.dll <span class="hint">(from <code>System\</code>)</span></label>
+          <input id="dll-input" type="file" accept=".dll,application/octet-stream">
+        </div>
+        <button id="patch-btn" type="button" disabled>Patch files</button>
+      </section>
+
+      <section class="panel">
+        <h2>2. Log</h2>
+        <pre id="log" aria-live="polite">Select both files, then click Patch files.</pre>
+      </section>
+
+      <section id="results" class="panel hidden">
+        <h2>3. Download patched files</h2>
+        <div class="downloads">
+          <a id="download-exe" class="button" download="Mozaik.exe">Download Mozaik.exe</a>
+          <a id="download-dll" class="button" download="MozaikData.dll">Download MozaikData.dll</a>
+        </div>
+
+        <div class="instructions">
+          <h3>Replace your install</h3>
+          <p>Back up your originals first, then close Mozaik and replace:</p>
+          <ul>
+            <li><code>C:\Mozaik\Mozaik.exe</code></li>
+            <li><code>C:\Mozaik\System\MozaikData.dll</code></li>
+          </ul>
+          <p>with the downloaded patched files.</p>
+        </div>
+      </section>
+    </section>
+
+    <section id="error" class="panel error hidden">
+      <h2>Runtime failed to start</h2>
+      <p id="error-text"></p>
+    </section>
+  </main>
+</body>
+
+</html>

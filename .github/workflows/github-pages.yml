@@ -1,0 +1,66 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install WASM templates
+        run: dotnet new install Microsoft.NET.Runtime.WebAssembly.Templates
+
+      - name: Publish patcher
+        run: dotnet publish -c Release
+
+      - name: Compute base href
+        id: base
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          if [[ "${REPO_NAME}" == *.github.io ]]; then
+            echo "href=/" >> "${GITHUB_OUTPUT}"
+          else
+            echo "href=/${REPO_NAME}/" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Prepare for GitHub Pages
+        run: |
+          chmod +x scripts/prepare-github-pages.sh
+          scripts/prepare-github-pages.sh \
+            "bin/Release/net8.0/publish/wwwroot" \
+            "${{ steps.base.outputs.href }}"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: bin/Release/net8.0/publish/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
